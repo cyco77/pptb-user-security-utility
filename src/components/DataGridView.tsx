@@ -75,7 +75,9 @@ export const DataGridView: React.FC<IDataGridViewProps> = ({
       compare: (a, b) => a.fullname.localeCompare(b.fullname),
       renderHeaderCell: () => "Full Name",
       renderCell: (item) => (
-        <div className={styles.cellStyles}>{item.fullname}</div>
+        <span className={styles.cellStyles} title={item.fullname}>
+          {item.fullname}
+        </span>
       ),
     }),
     createTableColumn<SystemUser>({
@@ -83,7 +85,9 @@ export const DataGridView: React.FC<IDataGridViewProps> = ({
       compare: (a, b) => a.domainname.localeCompare(b.domainname),
       renderHeaderCell: () => "Domain Name",
       renderCell: (item) => (
-        <div className={styles.cellStyles}>{item.domainname}</div>
+        <span className={styles.cellStyles} title={item.domainname}>
+          {item.domainname}
+        </span>
       ),
     }),
     createTableColumn<SystemUser>({
@@ -94,9 +98,12 @@ export const DataGridView: React.FC<IDataGridViewProps> = ({
         ),
       renderHeaderCell: () => "Business Unit",
       renderCell: (item) => (
-        <div className={styles.cellStyles}>
+        <span
+          className={styles.cellStyles}
+          title={item.businessunitid?.name ?? "N/A"}
+        >
           {item.businessunitid?.name ?? "N/A"}
-        </div>
+        </span>
       ),
     }),
     createTableColumn<SystemUser>({
@@ -105,35 +112,44 @@ export const DataGridView: React.FC<IDataGridViewProps> = ({
         a.isdisabled === b.isdisabled ? 0 : a.isdisabled ? 1 : -1,
       renderHeaderCell: () => "Status",
       renderCell: (item) => (
-        <div className={styles.cellStyles}>
+        <span
+          className={styles.cellStyles}
+          title={item.isdisabled ? "Disabled" : "Enabled"}
+        >
           {item.isdisabled ? "Disabled" : "Enabled"}
-        </div>
+        </span>
       ),
     }),
   ];
 
   const teamColumns: TableColumnDefinition<Team>[] = [
     createTableColumn<Team>({
-      columnId: "name",
+      columnId: "teamname",
       compare: (a, b) => a.name.localeCompare(b.name),
       renderHeaderCell: () => "Team Name",
       renderCell: (item) => (
-        <div className={styles.cellStyles}>{item.name}</div>
+        <div className={styles.cellStyles} title={item.name}>
+          {item.name}
+        </div>
       ),
     }),
     createTableColumn<Team>({
       columnId: "teamtype",
       compare: (a, b) => a.teamtype - b.teamtype,
       renderHeaderCell: () => "Team Type",
-      renderCell: (item) => (
-        <div className={styles.cellStyles}>
-          {item.teamtype === 0
+      renderCell: (item) => {
+        const typeText =
+          item.teamtype === 0
             ? "Owner"
             : item.teamtype === 1
             ? "Access"
-            : "Other"}
-        </div>
-      ),
+            : "Other";
+        return (
+          <div className={styles.cellStyles} title={typeText}>
+            {typeText}
+          </div>
+        );
+      },
     }),
     createTableColumn<Team>({
       columnId: "businessunit",
@@ -142,27 +158,55 @@ export const DataGridView: React.FC<IDataGridViewProps> = ({
           b.businessunitid?.name ?? ""
         ),
       renderHeaderCell: () => "Business Unit",
-      renderCell: (item) => (
-        <div className={styles.cellStyles}>
-          {item.businessunitid?.name ?? "N/A"}
-        </div>
-      ),
+      renderCell: (item) => {
+        const buName = item.businessunitid?.name ?? "N/A";
+        return (
+          <div className={styles.cellStyles} title={buName}>
+            {buName}
+          </div>
+        );
+      },
     }),
     createTableColumn<Team>({
       columnId: "isdefault",
       compare: (a, b) =>
         a.isdefault === b.isdefault ? 0 : a.isdefault ? -1 : 1,
       renderHeaderCell: () => "Default Team",
-      renderCell: (item) => (
-        <div className={styles.cellStyles}>{item.isdefault ? "Yes" : "No"}</div>
-      ),
+      renderCell: (item) => {
+        const defaultText = item.isdefault ? "Yes" : "No";
+        return (
+          <div className={styles.cellStyles} title={defaultText}>
+            {defaultText}
+          </div>
+        );
+      },
     }),
   ];
+
+  const columnSizingOptionsSystemusers = {
+    fullname: {
+      minWidth: 300,
+      defaultWidth: 300,
+    },
+    domainname: {
+      minWidth: 300,
+      defaultWidth: 300,
+    },
+    businessunit: {
+      minWidth: 250,
+      defaultWidth: 250,
+    },
+    status: {
+      minWidth: 200,
+      defaultWidth: 200,
+    },
+  };
 
   if (entityType === "systemuser") {
     return (
       <div className={styles.container}>
         <DataGrid
+          key="systemuser-grid"
           items={systemUsers}
           columns={systemUserColumns}
           sortable
@@ -170,6 +214,8 @@ export const DataGridView: React.FC<IDataGridViewProps> = ({
             sortColumn: "fullname",
             sortDirection: "ascending",
           }}
+          resizableColumns
+          columnSizingOptions={columnSizingOptionsSystemusers}
           className={styles.dataGrid}
           size="small"
           selectionMode="single"
@@ -198,13 +244,38 @@ export const DataGridView: React.FC<IDataGridViewProps> = ({
     );
   }
 
+  const columnSizingOptionsTeams = {
+    teamname: {
+      minWidth: 300,
+      defaultWidth: 300,
+    },
+    teamtype: {
+      minWidth: 100,
+      defaultWidth: 100,
+    },
+    businessunit: {
+      minWidth: 250,
+      defaultWidth: 250,
+    },
+    isdefault: {
+      minWidth: 200,
+      defaultWidth: 200,
+    },
+  };
+
   return (
     <div className={styles.container}>
       <DataGrid
+        key="team-grid"
         items={teams}
         columns={teamColumns}
         sortable
-        defaultSortState={{ sortColumn: "name", sortDirection: "ascending" }}
+        resizableColumns
+        columnSizingOptions={columnSizingOptionsTeams}
+        defaultSortState={{
+          sortColumn: "teamname",
+          sortDirection: "ascending",
+        }}
         className={styles.dataGrid}
         size="small"
         selectionMode="single"

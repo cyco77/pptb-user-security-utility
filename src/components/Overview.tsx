@@ -5,10 +5,13 @@ import {
   loadSecurityRolesForUser,
   loadSecurityRolesForTeam,
   loadTeamsForUser,
+  loadUsersForTeam,
+  loadQueuesForUser,
 } from "../services/dataverseService";
 import { SystemUser } from "../types/systemUser";
 import { Team } from "../types/team";
 import { SecurityRole } from "../types/securityRole";
+import { Queue } from "../types/queue";
 import { Filter } from "./Filter";
 import { DataGridView } from "./DataGridView";
 import { SecurityRolesPanel } from "./SecurityRolesPanel";
@@ -40,6 +43,10 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
   const [isLoadingRoles, setIsLoadingRoles] = useState(false);
   const [userTeams, setUserTeams] = useState<Team[]>([]);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
+  const [userQueues, setUserQueues] = useState<Queue[]>([]);
+  const [isLoadingQueues, setIsLoadingQueues] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<SystemUser[]>([]);
+  const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false);
   const [isExportingCSV, setIsExportingCSV] = useState(false);
   const [isExportingMarkdown, setIsExportingMarkdown] = useState(false);
 
@@ -115,6 +122,11 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
       );
     } catch (error) {
       logger.error(`Error loading data: ${(error as Error).message}`);
+      await window.toolboxAPI.utils.showNotification({
+        title: "Error Loading Data",
+        body: `Failed to load data from Dataverse: ${(error as Error).message}`,
+        type: "error",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -127,6 +139,8 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
       if (!id) {
         setSecurityRoles([]);
         setUserTeams([]);
+        setUserQueues([]);
+        setTeamMembers([]);
         return;
       }
 
@@ -136,31 +150,55 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
       if (entityType === "systemuser") {
         setIsLoadingTeams(true);
         setUserTeams([]);
+        setIsLoadingQueues(true);
+        setUserQueues([]);
+      } else {
+        setIsLoadingTeamMembers(true);
+        setTeamMembers([]);
       }
 
       try {
         let roles: SecurityRole[] = [];
         if (entityType === "systemuser") {
-          const [rolesData, teamsData] = await Promise.all([
+          const [rolesData, teamsData, queuesData] = await Promise.all([
             loadSecurityRolesForUser(id),
             loadTeamsForUser(id),
+            loadQueuesForUser(id),
           ]);
           roles = rolesData;
           setUserTeams(teamsData);
+          setUserQueues(queuesData);
           logger.info(
-            `Fetched ${roles.length} security roles and ${teamsData.length} teams for user ${id}`
+            `Fetched ${roles.length} security roles, ${teamsData.length} teams, and ${queuesData.length} queues for user ${id}`
           );
         } else {
-          roles = await loadSecurityRolesForTeam(id);
-          logger.info(`Fetched ${roles.length} security roles for team ${id}`);
+          const [rolesData, membersData] = await Promise.all([
+            loadSecurityRolesForTeam(id),
+            loadUsersForTeam(id),
+          ]);
+          roles = rolesData;
+          setTeamMembers(membersData);
+          logger.info(
+            `Fetched ${roles.length} security roles and ${membersData.length} members for team ${id}`
+          );
         }
         setSecurityRoles(roles);
       } catch (error) {
         logger.error(`Error loading data: ${(error as Error).message}`);
+        await window.toolboxAPI.utils.showNotification({
+          title: "Error Loading Details",
+          body: `Failed to load security roles and related data: ${
+            (error as Error).message
+          }`,
+          type: "error",
+        });
       } finally {
         setIsLoadingRoles(false);
         if (entityType === "systemuser") {
           setIsLoadingTeams(false);
+          setIsLoadingQueues(false);
+        } else {
+          setIsLoadingTeamMembers(false);
         }
       }
     },
@@ -259,32 +297,39 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
   const exportToCSV = useCallback(async () => {
     setIsExportingCSV(true);
     try {
-      // First, collect all user data with their roles and teams
+      // First, collect all user data with their roles, teams, and queues
       const userData: Array<{
         user: SystemUser;
         roles: SecurityRole[];
         teams: Team[];
+        queues: Queue[];
       }> = [];
 
       for (const user of filteredSystemUsers) {
         const roles = await loadSecurityRolesForUser(user.systemuserid);
         const teams = await loadTeamsForUser(user.systemuserid);
-        userData.push({ user, roles, teams });
+        const queues = await loadQueuesForUser(user.systemuserid);
+        userData.push({ user, roles, teams, queues });
       }
 
-      // Collect all unique roles and teams
+      // Collect all unique roles, teams, and queues
       const allRolesMap = new Map<string, string>();
       const allTeamsMap = new Map<string, string>();
+      const allQueuesMap = new Map<string, string>();
 
-      userData.forEach(({ roles, teams }) => {
+      userData.forEach(({ roles, teams, queues }) => {
         roles.forEach((role) => allRolesMap.set(role.roleid, role.name));
         teams.forEach((team) => allTeamsMap.set(team.teamid, team.name));
+        queues.forEach((queue) => allQueuesMap.set(queue.queueid, queue.name));
       });
 
       const allRoles = Array.from(allRolesMap.entries()).sort((a, b) =>
         a[1].localeCompare(b[1])
       );
       const allTeams = Array.from(allTeamsMap.entries()).sort((a, b) =>
+        a[1].localeCompare(b[1])
+      );
+      const allQueues = Array.from(allQueuesMap.entries()).sort((a, b) =>
         a[1].localeCompare(b[1])
       );
 
@@ -298,10 +343,11 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
       ];
       allRoles.forEach(([, name]) => headerParts.push(`Role: ${name}`));
       allTeams.forEach(([, name]) => headerParts.push(`Team: ${name}`));
+      allQueues.forEach(([, name]) => headerParts.push(`Queue: ${name}`));
       csvLines.push(headerParts.map((h) => `"${h}"`).join(","));
 
       // Build data rows
-      userData.forEach(({ user, roles, teams }) => {
+      userData.forEach(({ user, roles, teams, queues }) => {
         const rowParts: string[] = [
           user.fullname,
           user.domainname,
@@ -321,10 +367,16 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
           rowParts.push(hasTeam ? "X" : "");
         });
 
+        // Check each queue
+        allQueues.forEach(([queueId]) => {
+          const hasQueue = queues.some((q) => q.queueid === queueId);
+          rowParts.push(hasQueue ? "X" : "");
+        });
+
         csvLines.push(rowParts.map((p) => `"${p}"`).join(","));
       });
 
-      const csvContent = csvLines.join("\n");
+      const csvContent = "\uFEFF" + csvLines.join("\r\n");
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       await window.toolboxAPI.utils.saveFile(
         `user-security-export-${timestamp}.csv`,
@@ -355,6 +407,7 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
       for (const user of filteredSystemUsers) {
         const roles = await loadSecurityRolesForUser(user.systemuserid);
         const teams = await loadTeamsForUser(user.systemuserid);
+        const queues = await loadQueuesForUser(user.systemuserid);
 
         mdLines.push("");
         mdLines.push(`## ${user.fullname}`);
@@ -404,6 +457,24 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
           mdLines.push("");
           mdLines.push("*No team memberships*");
         }
+
+        if (queues.length > 0) {
+          mdLines.push("");
+          mdLines.push("### Queue Memberships");
+          mdLines.push("");
+          queues.forEach((queue) => {
+            const queueType =
+              queue.queuetypecode === 1
+                ? "Private"
+                : queue.queuetypecode === 2
+                ? "Public"
+                : "Unknown";
+            mdLines.push(`- ${queue.name} (${queueType})`);
+          });
+        } else {
+          mdLines.push("");
+          mdLines.push("*No queue memberships*");
+        }
       }
 
       const mdContent = mdLines.join("\n");
@@ -421,6 +492,177 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
     }
   }, [filteredSystemUsers]);
 
+  const exportTeamsToCSV = useCallback(async () => {
+    setIsExportingCSV(true);
+    try {
+      // First, collect all team data with their roles and members
+      const teamData: Array<{
+        team: Team;
+        roles: SecurityRole[];
+        members: SystemUser[];
+      }> = [];
+
+      for (const team of filteredTeams) {
+        const roles = await loadSecurityRolesForTeam(team.teamid);
+        const members = await loadUsersForTeam(team.teamid);
+        teamData.push({ team, roles, members });
+      }
+
+      // Collect all unique roles and members
+      const allRolesMap = new Map<string, string>();
+      const allMembersMap = new Map<string, string>();
+
+      teamData.forEach(({ roles, members }) => {
+        roles.forEach((role) => allRolesMap.set(role.roleid, role.name));
+        members.forEach((member) =>
+          allMembersMap.set(member.systemuserid, member.fullname)
+        );
+      });
+
+      const allRoles = Array.from(allRolesMap.entries()).sort((a, b) =>
+        a[1].localeCompare(b[1])
+      );
+      const allMembers = Array.from(allMembersMap.entries()).sort((a, b) =>
+        a[1].localeCompare(b[1])
+      );
+
+      // Build CSV header
+      const csvLines: string[] = [];
+      const headerParts = ["Team Name", "Team Type", "Business Unit"];
+      allRoles.forEach(([, name]) => headerParts.push(`Role: ${name}`));
+      allMembers.forEach(([, name]) => headerParts.push(`Member: ${name}`));
+      csvLines.push(headerParts.map((h) => `"${h}"`).join(","));
+
+      // Build data rows
+      teamData.forEach(({ team, roles, members }) => {
+        const teamType =
+          team.teamtype === 0
+            ? "Owner"
+            : team.teamtype === 1
+            ? "Access"
+            : "Other";
+        const rowParts: string[] = [
+          team.name,
+          teamType,
+          team.businessunitid?.name ?? "N/A",
+        ];
+
+        // Check each role
+        allRoles.forEach(([roleId]) => {
+          const hasRole = roles.some((r) => r.roleid === roleId);
+          rowParts.push(hasRole ? "X" : "");
+        });
+
+        // Check each member
+        allMembers.forEach(([memberId]) => {
+          const hasMember = members.some((m) => m.systemuserid === memberId);
+          rowParts.push(hasMember ? "X" : "");
+        });
+
+        csvLines.push(rowParts.map((p) => `"${p}"`).join(","));
+      });
+
+      const csvContent = "\uFEFF" + csvLines.join("\r\n");
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      await window.toolboxAPI.utils.saveFile(
+        `team-security-export-${timestamp}.csv`,
+        csvContent
+      );
+      await window.toolboxAPI.utils.showNotification({
+        title: "Export Successful",
+        body: "Team security data has been exported to CSV successfully.",
+        type: "success",
+      });
+      logger.info("Exported team data to CSV successfully");
+    } catch (error) {
+      logger.error(`Error exporting to CSV: ${(error as Error).message}`);
+    } finally {
+      setIsExportingCSV(false);
+    }
+  }, [filteredTeams]);
+
+  const exportTeamsToMarkdown = useCallback(async () => {
+    setIsExportingMarkdown(true);
+    try {
+      const mdLines: string[] = [];
+      mdLines.push("# Team Security Report");
+      mdLines.push("");
+      mdLines.push(`Generated: ${new Date().toLocaleString()}`);
+      mdLines.push("");
+
+      for (const team of filteredTeams) {
+        const roles = await loadSecurityRolesForTeam(team.teamid);
+        const members = await loadUsersForTeam(team.teamid);
+
+        mdLines.push("");
+        mdLines.push(`## ${team.name}`);
+        mdLines.push("");
+        const teamType =
+          team.teamtype === 0
+            ? "Owner"
+            : team.teamtype === 1
+            ? "Access"
+            : "Other";
+        mdLines.push(`- **Team Type:** ${teamType}`);
+        mdLines.push(
+          `- **Business Unit:** ${team.businessunitid?.name ?? "N/A"}`
+        );
+        mdLines.push(`- **Default Team:** ${team.isdefault ? "Yes" : "No"}`);
+
+        if (roles.length > 0) {
+          mdLines.push("");
+          mdLines.push("### Security Roles");
+          mdLines.push("");
+          roles.forEach((role) => {
+            mdLines.push(
+              `- ${role.name}${role.ismanaged ? " (Managed)" : ""}${
+                role.businessunitid ? ` - ${role.businessunitid.name}` : ""
+              }`
+            );
+          });
+        } else {
+          mdLines.push("");
+          mdLines.push("*No security roles assigned*");
+        }
+
+        if (members.length > 0) {
+          mdLines.push("");
+          mdLines.push("### Team Members");
+          mdLines.push("");
+          members
+            .sort((a, b) => a.fullname.localeCompare(b.fullname))
+            .forEach((member) => {
+              mdLines.push(
+                `- ${member.fullname} (${member.domainname})${
+                  member.isdisabled ? " [Disabled]" : ""
+                }${
+                  member.businessunitid
+                    ? ` - ${member.businessunitid.name}`
+                    : ""
+                }`
+              );
+            });
+        } else {
+          mdLines.push("");
+          mdLines.push("*No team members*");
+        }
+      }
+
+      const mdContent = mdLines.join("\n");
+      await window.toolboxAPI.utils.copyToClipboard(mdContent);
+      await window.toolboxAPI.utils.showNotification({
+        title: "Copy Successful",
+        body: "Team security data has been copied to clipboard as Markdown successfully.",
+        type: "success",
+      });
+      logger.info("Copied team data to clipboard as Markdown successfully");
+    } catch (error) {
+      logger.error(`Error exporting to Markdown: ${(error as Error).message}`);
+    } finally {
+      setIsExportingMarkdown(false);
+    }
+  }, [filteredTeams]);
+
   return (
     <div className={styles.overviewRoot}>
       {isLoading ? (
@@ -437,6 +679,7 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
               statusFilter={statusFilter}
               userTypeFilter={userTypeFilter}
               businessUnitFilter={businessUnitFilter}
+              textFilter={textFilter}
               onEntityTypeChanged={(type: "systemuser" | "team") => {
                 logger.info(`Entity type changed to: ${type}`);
                 setEntityType(type);
@@ -506,6 +749,42 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
                 </Button>
               </div>
             )}
+            {entityType === "team" && (
+              <div className={styles.buttonContainer}>
+                <Button
+                  appearance="primary"
+                  icon={
+                    isExportingCSV ? <Spinner size="tiny" /> : <SaveRegular />
+                  }
+                  onClick={exportTeamsToCSV}
+                  disabled={
+                    isExportingCSV ||
+                    isExportingMarkdown ||
+                    filteredTeams.length === 0
+                  }
+                >
+                  {isExportingCSV ? "Exporting..." : "Export to CSV"}
+                </Button>
+                <Button
+                  appearance="secondary"
+                  icon={
+                    isExportingMarkdown ? (
+                      <Spinner size="tiny" />
+                    ) : (
+                      <DocumentCopyRegular />
+                    )
+                  }
+                  onClick={exportTeamsToMarkdown}
+                  disabled={
+                    isExportingCSV ||
+                    isExportingMarkdown ||
+                    filteredTeams.length === 0
+                  }
+                >
+                  {isExportingMarkdown ? "Copying..." : "Copy as Markdown"}
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className={styles.dataSection}>
@@ -537,6 +816,10 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
                 isLoadingRoles={isLoadingRoles}
                 userTeams={userTeams}
                 isLoadingTeams={isLoadingTeams}
+                userQueues={userQueues}
+                isLoadingQueues={isLoadingQueues}
+                teamMembers={teamMembers}
+                isLoadingTeamMembers={isLoadingTeamMembers}
               />
             )}
           </div>

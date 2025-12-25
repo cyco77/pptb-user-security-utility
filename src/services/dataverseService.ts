@@ -1,6 +1,7 @@
 import { SystemUser } from "../types/systemUser";
 import { Team } from "../types/team";
 import { SecurityRole } from "../types/securityRole";
+import { Queue } from "../types/queue";
 import { logger } from "./loggerService";
 
 export const loadSystemUsers = async (): Promise<SystemUser[]> => {
@@ -132,5 +133,41 @@ export const loadTeamsForUser = async (
           name: record.businessunitid.name,
         }
       : undefined,
+  }));
+};
+
+export const loadUsersForTeam = async (
+  teamId: string
+): Promise<SystemUser[]> => {
+  const url = `teams(${teamId})/teammembership_association?$select=systemuserid,fullname,domainname,isdisabled,applicationid&$expand=businessunitid($select=businessunitid,name)`;
+
+  const allRecords = await loadAllData(url);
+
+  return allRecords.map((record: any) => ({
+    systemuserid: record.systemuserid,
+    fullname: record.fullname,
+    domainname: record.domainname,
+    isdisabled: record.isdisabled,
+    applicationid: record.applicationid ?? null,
+    businessunitid: record.businessunitid
+      ? {
+          businessunitid: record.businessunitid.businessunitid,
+          name: record.businessunitid.name,
+        }
+      : undefined,
+  }));
+};
+
+export const loadQueuesForUser = async (
+  systemUserId: string
+): Promise<Queue[]> => {
+  const url = `systemusers(${systemUserId})/queuemembership_association?$select=queueid,name,queuetypecode&$orderby=name`;
+
+  const allRecords = await loadAllData(url);
+
+  return allRecords.map((record: any) => ({
+    queueid: record.queueid,
+    name: record.name,
+    queuetypecode: record.queuetypecode,
   }));
 };

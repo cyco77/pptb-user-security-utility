@@ -22,6 +22,7 @@ export interface IFilterProps {
   statusFilter?: "all" | "enabled" | "disabled";
   userTypeFilter?: "all" | "users" | "applications";
   businessUnitFilter?: string;
+  textFilter?: string;
   onEntityTypeChanged: (entityType: "systemuser" | "team") => void;
   onTextFilterChanged: (searchText: string) => void;
   onStatusFilterChanged?: (status: "all" | "enabled" | "disabled") => void;
@@ -45,6 +46,9 @@ const useStyles = makeStyles({
   },
   dropdown: {
     minWidth: "200px",
+  },
+  dropdownSmall: {
+    minWidth: "150px",
   },
   searchInput: {
     minWidth: "350px",
@@ -131,7 +135,7 @@ export const Filter = (props: IFilterProps): JSXElement => {
           id={entityTypeDropdownId}
           placeholder="Select entity type"
           onOptionSelect={onEntityTypeSelect}
-          className={styles.dropdown}
+          className={styles.dropdownSmall}
           value={props.entityType === "systemuser" ? "System Users" : "Teams"}
           selectedOptions={[props.entityType]}
         >
@@ -152,7 +156,7 @@ export const Filter = (props: IFilterProps): JSXElement => {
               id={statusDropdownId}
               placeholder="Enabled"
               onOptionSelect={onStatusSelect}
-              className={styles.dropdown}
+              className={styles.dropdownSmall}
               value={
                 props.statusFilter === "all"
                   ? "All"
@@ -179,7 +183,7 @@ export const Filter = (props: IFilterProps): JSXElement => {
               id={userTypeDropdownId}
               placeholder="All"
               onOptionSelect={onUserTypeSelect}
-              className={styles.dropdown}
+              className={styles.dropdownSmall}
               value={
                 props.userTypeFilter === "all"
                   ? "All"
@@ -234,6 +238,7 @@ export const Filter = (props: IFilterProps): JSXElement => {
         <SearchBox
           id={searchInputId}
           placeholder="Search by name..."
+          value={props.textFilter ?? ""}
           onChange={onTextFilterChange}
           className={styles.searchInput}
         />

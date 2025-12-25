@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import {
   makeStyles,
   tokens,
@@ -9,9 +9,12 @@ import {
   Card,
   CardHeader,
   Badge,
+  SearchBox,
 } from "@fluentui/react-components";
 import { SecurityRole } from "../types/securityRole";
 import { Team } from "../types/team";
+import { SystemUser } from "../types/systemUser";
+import { Queue } from "../types/queue";
 
 interface ISecurityRolesPanelProps {
   entityType: "systemuser" | "team";
@@ -20,6 +23,10 @@ interface ISecurityRolesPanelProps {
   isLoadingRoles: boolean;
   userTeams?: Team[];
   isLoadingTeams?: boolean;
+  userQueues?: Queue[];
+  isLoadingQueues?: boolean;
+  teamMembers?: SystemUser[];
+  isLoadingTeamMembers?: boolean;
 }
 
 const useStyles = makeStyles({
@@ -99,6 +106,41 @@ const useStyles = makeStyles({
     fontSize: tokens.fontSizeBase200,
     color: tokens.colorNeutralForeground3,
   },
+  badge: {
+    marginLeft: tokens.spacingHorizontalM,
+  },
+  userCard: {
+    padding: tokens.spacingVerticalM,
+  },
+  userHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  userName: {
+    fontWeight: tokens.fontWeightSemibold,
+    fontSize: tokens.fontSizeBase300,
+  },
+  userDetails: {
+    marginTop: tokens.spacingVerticalXS,
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
+  filterInput: {
+    marginBottom: tokens.spacingVerticalS,
+  },
+  queueCard: {
+    padding: tokens.spacingVerticalM,
+  },
+  queueName: {
+    fontWeight: tokens.fontWeightSemibold,
+    fontSize: tokens.fontSizeBase300,
+  },
+  queueDetails: {
+    marginTop: tokens.spacingVerticalXS,
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
 });
 
 export const SecurityRolesPanel: React.FC<ISecurityRolesPanelProps> = ({
@@ -108,8 +150,26 @@ export const SecurityRolesPanel: React.FC<ISecurityRolesPanelProps> = ({
   isLoadingRoles,
   userTeams = [],
   isLoadingTeams = false,
+  userQueues = [],
+  isLoadingQueues = false,
+  teamMembers = [],
+  isLoadingTeamMembers = false,
 }) => {
   const styles = useStyles();
+  const [memberFilter, setMemberFilter] = useState("");
+
+  const filteredTeamMembers = useMemo(() => {
+    if (!memberFilter) return teamMembers;
+
+    const searchTerm = memberFilter.toLowerCase();
+    return teamMembers.filter((user) => {
+      return (
+        user.fullname?.toLowerCase().includes(searchTerm) ||
+        user.domainname?.toLowerCase().includes(searchTerm) ||
+        user.businessunitid?.name?.toLowerCase().includes(searchTerm)
+      );
+    });
+  }, [teamMembers, memberFilter]);
 
   return (
     <div className={styles.panel}>
@@ -136,7 +196,11 @@ export const SecurityRolesPanel: React.FC<ISecurityRolesPanelProps> = ({
                     <div className={styles.roleHeader}>
                       <div className={styles.roleName}>{role.name}</div>
                       {role.ismanaged && (
-                        <Badge appearance="tint" color="informative">
+                        <Badge
+                          appearance="tint"
+                          color="informative"
+                          className={styles.badge}
+                        >
                           Managed
                         </Badge>
                       )}
@@ -175,7 +239,11 @@ export const SecurityRolesPanel: React.FC<ISecurityRolesPanelProps> = ({
                       <div className={styles.teamHeader}>
                         <div className={styles.teamName}>{team.name}</div>
                         {team.isdefault && (
-                          <Badge appearance="tint" color="success">
+                          <Badge
+                            appearance="tint"
+                            color="success"
+                            className={styles.badge}
+                          >
                             Default
                           </Badge>
                         )}
@@ -198,6 +266,111 @@ export const SecurityRolesPanel: React.FC<ISecurityRolesPanelProps> = ({
                   />
                 </Card>
               ))
+            )}
+          </div>
+        )}
+
+        {/* Queues Section - only for system users */}
+        {entityType === "systemuser" && (
+          <div className={styles.section}>
+            <Title3 className={styles.sectionTitle}>Queue Memberships</Title3>
+            {isLoadingQueues ? (
+              <div className={styles.loadingContainer}>
+                <Spinner label="Loading queues..." />
+              </div>
+            ) : userQueues.length === 0 ? (
+              <div className={styles.emptyState}>
+                <Text>No queue memberships</Text>
+              </div>
+            ) : (
+              userQueues.map((queue) => (
+                <Card key={queue.queueid} className={styles.queueCard}>
+                  <CardHeader
+                    header={
+                      <div className={styles.queueName}>{queue.name}</div>
+                    }
+                    description={
+                      <div className={styles.queueDetails}>
+                        {queue.queuetypecode !== undefined && (
+                          <div>
+                            Type:{" "}
+                            {queue.queuetypecode === 1
+                              ? "Private"
+                              : queue.queuetypecode === 2
+                              ? "Public"
+                              : "Unknown"}
+                          </div>
+                        )}
+                      </div>
+                    }
+                  />
+                </Card>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Team Members Section - only for teams */}
+        {entityType === "team" && (
+          <div className={styles.section}>
+            <Title3 className={styles.sectionTitle}>Team Members</Title3>
+            {isLoadingTeamMembers ? (
+              <div className={styles.loadingContainer}>
+                <Spinner label="Loading team members..." />
+              </div>
+            ) : teamMembers.length === 0 ? (
+              <div className={styles.emptyState}>
+                <Text>No team members</Text>
+              </div>
+            ) : (
+              <>
+                <SearchBox
+                  className={styles.filterInput}
+                  placeholder="Filter members..."
+                  value={memberFilter}
+                  onChange={(e, data) => setMemberFilter(data.value)}
+                />
+                {filteredTeamMembers.length === 0 ? (
+                  <div className={styles.emptyState}>
+                    <Text>No members match the filter</Text>
+                  </div>
+                ) : (
+                  [...filteredTeamMembers]
+                    .sort((a, b) => a.fullname.localeCompare(b.fullname))
+                    .map((user) => (
+                      <Card key={user.systemuserid} className={styles.userCard}>
+                        <CardHeader
+                          header={
+                            <div className={styles.userHeader}>
+                              <div className={styles.userName}>
+                                {user.fullname}
+                              </div>
+                              {user.isdisabled && (
+                                <Badge
+                                  appearance="tint"
+                                  color="warning"
+                                  className={styles.badge}
+                                >
+                                  Disabled
+                                </Badge>
+                              )}
+                            </div>
+                          }
+                          description={
+                            <div className={styles.userDetails}>
+                              <div>{user.domainname}</div>
+                              {user.businessunitid && (
+                                <div>
+                                  Business Unit: {user.businessunitid.name}
+                                </div>
+                              )}
+                            </div>
+                          }
+                        />
+                      </Card>
+                    ))
+                )}
+              </>
             )}
           </div>
         )}
