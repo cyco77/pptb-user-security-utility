@@ -328,7 +328,7 @@ export const SecurityRolesPanel: React.FC<ISecurityRolesPanelProps> = ({
                   className={styles.filterInput}
                   placeholder="Filter members..."
                   value={memberFilter}
-                  onChange={(e, data) => setMemberFilter(data.value)}
+                  onChange={(_e, data) => setMemberFilter(data.value)}
                 />
                 {filteredTeamMembers.length === 0 ? (
                   <div className={styles.emptyState}>
