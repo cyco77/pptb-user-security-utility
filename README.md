@@ -1,7 +1,7 @@
 # User & Team Security Documentation Generator
 
 <p align="center">
-  <img src="icon/user-team-security_small.png" alt="User & Team Security Logo">
+  <img src="https://raw.githubusercontent.com/cyco77/pptb-user-security-utility/HEAD/icon/user-team-security_small.png" alt="User & Team Security Logo">
 </p>
 
 <p align="center">
@@ -12,11 +12,11 @@
 
 ### Dark Theme
 
-![User & Team Security - Dark Theme](screenshots/main_dark.png)
+![User & Team Security - Dark Theme](https://raw.githubusercontent.com/cyco77/pptb-user-security-utility/HEAD/screenshots/main_dark.png)
 
 ### Light Theme
 
-![User & Team Security - Light Theme](screenshots/main_light.png)
+![User & Team Security - Light Theme](https://raw.githubusercontent.com/cyco77/pptb-user-security-utility/HEAD/screenshots/main_light.png)
 
 ## Features
 
