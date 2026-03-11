@@ -27,7 +27,7 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
   const [systemUsers, setSystemUsers] = useState<SystemUser[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [entityType, setEntityType] = useState<"systemuser" | "team">(
-    "systemuser"
+    "systemuser",
   );
   const [textFilter, setTextFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<
@@ -118,7 +118,7 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
       setSystemUsers(users);
       setTeams(teamsData);
       logger.info(
-        `Fetched ${users.length} system users and ${teamsData.length} teams`
+        `Fetched ${users.length} system users and ${teamsData.length} teams`,
       );
     } catch (error) {
       logger.error(`Error loading data: ${(error as Error).message}`);
@@ -169,7 +169,7 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
           setUserTeams(teamsData);
           setUserQueues(queuesData);
           logger.info(
-            `Fetched ${roles.length} security roles, ${teamsData.length} teams, and ${queuesData.length} queues for user ${id}`
+            `Fetched ${roles.length} security roles, ${teamsData.length} teams, and ${queuesData.length} queues for user ${id}`,
           );
         } else {
           const [rolesData, membersData] = await Promise.all([
@@ -179,7 +179,7 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
           roles = rolesData;
           setTeamMembers(membersData);
           logger.info(
-            `Fetched ${roles.length} security roles and ${membersData.length} members for team ${id}`
+            `Fetched ${roles.length} security roles and ${membersData.length} members for team ${id}`,
           );
         }
         setSecurityRoles(roles);
@@ -202,7 +202,7 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
         }
       }
     },
-    [entityType]
+    [entityType],
   );
 
   const filteredSystemUsers = useMemo(() => {
@@ -233,7 +233,7 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
     // Apply business unit filter
     if (businessUnitFilter !== "all") {
       result = result.filter(
-        (user) => user.businessunitid?.businessunitid === businessUnitFilter
+        (user) => user.businessunitid?.businessunitid === businessUnitFilter,
       );
     }
 
@@ -264,7 +264,7 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
     // Apply business unit filter
     if (businessUnitFilter !== "all") {
       result = result.filter(
-        (team) => team.businessunitid?.businessunitid === businessUnitFilter
+        (team) => team.businessunitid?.businessunitid === businessUnitFilter,
       );
     }
 
@@ -324,13 +324,13 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
       });
 
       const allRoles = Array.from(allRolesMap.entries()).sort((a, b) =>
-        a[1].localeCompare(b[1])
+        a[1].localeCompare(b[1]),
       );
       const allTeams = Array.from(allTeamsMap.entries()).sort((a, b) =>
-        a[1].localeCompare(b[1])
+        a[1].localeCompare(b[1]),
       );
       const allQueues = Array.from(allQueuesMap.entries()).sort((a, b) =>
-        a[1].localeCompare(b[1])
+        a[1].localeCompare(b[1]),
       );
 
       // Build CSV header
@@ -378,9 +378,9 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
 
       const csvContent = "\uFEFF" + csvLines.join("\r\n");
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      await window.toolboxAPI.utils.saveFile(
+      await window.toolboxAPI.fileSystem.saveFile(
         `user-security-export-${timestamp}.csv`,
-        csvContent
+        csvContent,
       );
       await window.toolboxAPI.utils.showNotification({
         title: "Export Successful",
@@ -414,10 +414,10 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
         mdLines.push("");
         mdLines.push(`- **Domain Name:** ${user.domainname}`);
         mdLines.push(
-          `- **Business Unit:** ${user.businessunitid?.name ?? "N/A"}`
+          `- **Business Unit:** ${user.businessunitid?.name ?? "N/A"}`,
         );
         mdLines.push(
-          `- **Status:** ${user.isdisabled ? "Disabled" : "Enabled"}`
+          `- **Status:** ${user.isdisabled ? "Disabled" : "Enabled"}`,
         );
 
         if (roles.length > 0) {
@@ -428,7 +428,7 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
             mdLines.push(
               `- ${role.name}${role.ismanaged ? " (Managed)" : ""}${
                 role.businessunitid ? ` - ${role.businessunitid.name}` : ""
-              }`
+              }`,
             );
           });
         } else {
@@ -445,12 +445,12 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
               team.teamtype === 0
                 ? "Owner"
                 : team.teamtype === 1
-                ? "Access"
-                : "Other";
+                  ? "Access"
+                  : "Other";
             mdLines.push(
               `- ${team.name} (${teamType})${
                 team.isdefault ? " [Default]" : ""
-              }${team.businessunitid ? ` - ${team.businessunitid.name}` : ""}`
+              }${team.businessunitid ? ` - ${team.businessunitid.name}` : ""}`,
             );
           });
         } else {
@@ -467,8 +467,8 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
               queue.queuetypecode === 1
                 ? "Private"
                 : queue.queuetypecode === 2
-                ? "Public"
-                : "Unknown";
+                  ? "Public"
+                  : "Unknown";
             mdLines.push(`- ${queue.name} (${queueType})`);
           });
         } else {
@@ -515,15 +515,15 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
       teamData.forEach(({ roles, members }) => {
         roles.forEach((role) => allRolesMap.set(role.roleid, role.name));
         members.forEach((member) =>
-          allMembersMap.set(member.systemuserid, member.fullname)
+          allMembersMap.set(member.systemuserid, member.fullname),
         );
       });
 
       const allRoles = Array.from(allRolesMap.entries()).sort((a, b) =>
-        a[1].localeCompare(b[1])
+        a[1].localeCompare(b[1]),
       );
       const allMembers = Array.from(allMembersMap.entries()).sort((a, b) =>
-        a[1].localeCompare(b[1])
+        a[1].localeCompare(b[1]),
       );
 
       // Build CSV header
@@ -539,8 +539,8 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
           team.teamtype === 0
             ? "Owner"
             : team.teamtype === 1
-            ? "Access"
-            : "Other";
+              ? "Access"
+              : "Other";
         const rowParts: string[] = [
           team.name,
           teamType,
@@ -564,9 +564,9 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
 
       const csvContent = "\uFEFF" + csvLines.join("\r\n");
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      await window.toolboxAPI.utils.saveFile(
+      await window.toolboxAPI.fileSystem.saveFile(
         `team-security-export-${timestamp}.csv`,
-        csvContent
+        csvContent,
       );
       await window.toolboxAPI.utils.showNotification({
         title: "Export Successful",
@@ -601,11 +601,11 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
           team.teamtype === 0
             ? "Owner"
             : team.teamtype === 1
-            ? "Access"
-            : "Other";
+              ? "Access"
+              : "Other";
         mdLines.push(`- **Team Type:** ${teamType}`);
         mdLines.push(
-          `- **Business Unit:** ${team.businessunitid?.name ?? "N/A"}`
+          `- **Business Unit:** ${team.businessunitid?.name ?? "N/A"}`,
         );
         mdLines.push(`- **Default Team:** ${team.isdefault ? "Yes" : "No"}`);
 
@@ -617,7 +617,7 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
             mdLines.push(
               `- ${role.name}${role.ismanaged ? " (Managed)" : ""}${
                 role.businessunitid ? ` - ${role.businessunitid.name}` : ""
-              }`
+              }`,
             );
           });
         } else {
@@ -639,7 +639,7 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
                   member.businessunitid
                     ? ` - ${member.businessunitid.name}`
                     : ""
-                }`
+                }`,
               );
             });
         } else {
@@ -695,20 +695,20 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
                 setTextFilter(searchText);
               }}
               onStatusFilterChanged={(
-                status: "all" | "enabled" | "disabled"
+                status: "all" | "enabled" | "disabled",
               ) => {
                 logger.info(`Status filter changed to: ${status}`);
                 setStatusFilter(status);
               }}
               onUserTypeFilterChanged={(
-                userType: "all" | "users" | "applications"
+                userType: "all" | "users" | "applications",
               ) => {
                 logger.info(`User type filter changed to: ${userType}`);
                 setUserTypeFilter(userType);
               }}
               onBusinessUnitFilterChanged={(businessUnitId: string) => {
                 logger.info(
-                  `Business unit filter changed to: ${businessUnitId}`
+                  `Business unit filter changed to: ${businessUnitId}`,
                 );
                 setBusinessUnitFilter(businessUnitId);
               }}

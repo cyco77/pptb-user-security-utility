@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  A Power Platform Tool Box (PPTB) tool for viewing and documenting Dynamics 365 user and team security configurations. This tool provides an intuitive interface to explore security roles, team memberships, and export documentation in multiple formats.
+  A Power Platform Toolbox (PPTB) tool for viewing and documenting Dynamics 365 user and team security configurations. This tool provides an intuitive interface to explore security roles, team memberships, and export documentation in multiple formats.
 </p>
 
 ## Screenshots
