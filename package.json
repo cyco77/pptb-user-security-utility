@@ -1,6 +1,6 @@
 {
   "name": "@cyco77/pptb-user-security-utility",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "displayName": "User & Team Security Documentation Generator",
   "description": "A Power Platform Toolbox tool to show user & team security easily.",
   "main": "index.html",
@@ -26,6 +26,7 @@
     "url": "https://github.com/cyco77/pptb-user-security-utility/issues"
   },
   "homepage": "https://github.com/cyco77/pptb-user-security-utility#readme",
+  "readme": "https://raw.githubusercontent.com/cyco77/pptb-user-security-utility/refs/heads/main/README.md",
   "keywords": [
     "power-platform",
     "dynamics-365",
