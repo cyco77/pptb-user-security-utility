@@ -35,18 +35,16 @@
     "toolbox"
   ],
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
     "build": "tsc && vite build",
     "dev": "vite",
     "watch": "vite build --watch",
     "preview": "vite preview",
+    "changeset": "changeset",
     "finalize-package": "npm shrinkwrap",
-    "release:patch": "npm version patch",
-    "release:minor": "npm version minor",
-    "release:major": "npm version major",
-    "release:publish": "npm publish"
+    "release:version": "changeset version && npm run finalize-package"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -54,12 +52,13 @@
     "@fluentui/react-components": "^9.72.7"
   },
   "devDependencies": {
-    "@pptb/types": "^1.2.3",
+    "@changesets/cli": "^3.0.3",
+    "@pptb/types": "^1.2.6",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^6.0.3",
-    "typescript": "^5.6.3",
-    "vite": "^8.1.0"
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1"
   },
   "files": [
     "dist",
