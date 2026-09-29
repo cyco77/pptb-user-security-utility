@@ -1,12 +1,9 @@
 import { AssignmentSource } from "./assignment";
 
-export type SecurityRole = {
-  roleid: string;
+export type FieldSecurityProfile = {
+  fieldsecurityprofileid: string;
   name: string;
-  businessunitid?: {
-    businessunitid: string;
-    name: string;
-  };
+  description?: string;
   ismanaged: boolean;
   sources: AssignmentSource[];
 };

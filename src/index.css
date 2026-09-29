@@ -9,6 +9,7 @@ body {
     "Helvetica", "Arial", sans-serif;
   line-height: 1.6;
   min-height: 100vh;
+  color-scheme: light;
 }
 
 #root {
@@ -21,4 +22,13 @@ body {
   top: 0;
   z-index: 10;
   background-color: var(--colorNeutralBackground1, #ffffff);
+}
+
+/* Keep native scrollbars aligned with the active Fluent theme. */
+body[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+body[data-theme="light"] {
+  color-scheme: light;
 }

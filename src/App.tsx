@@ -95,6 +95,7 @@ function App() {
 
   async function updateThemeBasedOnSettings() {
     const theme = await window.toolboxAPI.utils.getCurrentTheme();
+    document.body.dataset.theme = theme === "dark" ? "dark" : "light";
     if (theme === "dark") {
       setTheme(teamsDarkTheme);
     } else {
