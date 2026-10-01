@@ -2,8 +2,9 @@ import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
   loadSystemUsers,
   loadTeams,
-  loadSecurityRolesForUser,
   loadSecurityRolesForTeam,
+  loadEffectiveSecurityRolesForUser,
+  loadEffectiveFieldSecurityProfilesForUser,
   loadTeamsForUser,
   loadUsersForTeam,
   loadQueuesForUser,
@@ -11,6 +12,7 @@ import {
 import { SystemUser } from "../types/systemUser";
 import { Team } from "../types/team";
 import { SecurityRole } from "../types/securityRole";
+import { FieldSecurityProfile } from "../types/fieldSecurityProfile";
 import { Queue } from "../types/queue";
 import { Filter } from "./Filter";
 import { DataGridView } from "./DataGridView";
@@ -18,6 +20,13 @@ import { SecurityRolesPanel } from "./SecurityRolesPanel";
 import { makeStyles, Spinner, Text, Button } from "@fluentui/react-components";
 import { DocumentCopyRegular, SaveRegular } from "@fluentui/react-icons";
 import { logger } from "../services/loggerService";
+
+const formatAssignmentSources = (sources: SecurityRole["sources"]): string =>
+  sources
+    .map((source) =>
+      source.type === "direct" ? "Directly assigned" : `Via team: ${source.teamName}`,
+    )
+    .join("; ");
 
 interface IOverviewProps {
   connection: ToolBoxAPI.DataverseConnection | null;
@@ -41,6 +50,11 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [securityRoles, setSecurityRoles] = useState<SecurityRole[]>([]);
   const [isLoadingRoles, setIsLoadingRoles] = useState(false);
+  const [fieldSecurityProfiles, setFieldSecurityProfiles] = useState<
+    FieldSecurityProfile[]
+  >([]);
+  const [isLoadingFieldSecurityProfiles, setIsLoadingFieldSecurityProfiles] =
+    useState(false);
   const [userTeams, setUserTeams] = useState<Team[]>([]);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
   const [userQueues, setUserQueues] = useState<Queue[]>([]);
@@ -138,6 +152,7 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
 
       if (!id) {
         setSecurityRoles([]);
+        setFieldSecurityProfiles([]);
         setUserTeams([]);
         setUserQueues([]);
         setTeamMembers([]);
@@ -150,6 +165,8 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
       if (entityType === "systemuser") {
         setIsLoadingTeams(true);
         setUserTeams([]);
+        setIsLoadingFieldSecurityProfiles(true);
+        setFieldSecurityProfiles([]);
         setIsLoadingQueues(true);
         setUserQueues([]);
       } else {
@@ -160,16 +177,20 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
       try {
         let roles: SecurityRole[] = [];
         if (entityType === "systemuser") {
-          const [rolesData, teamsData, queuesData] = await Promise.all([
-            loadSecurityRolesForUser(id),
+          const [teamsData, queuesData] = await Promise.all([
             loadTeamsForUser(id),
             loadQueuesForUser(id),
+          ]);
+          const [rolesData, profilesData] = await Promise.all([
+            loadEffectiveSecurityRolesForUser(id, teamsData),
+            loadEffectiveFieldSecurityProfilesForUser(id, teamsData),
           ]);
           roles = rolesData;
           setUserTeams(teamsData);
           setUserQueues(queuesData);
+          setFieldSecurityProfiles(profilesData);
           logger.info(
-            `Fetched ${roles.length} security roles, ${teamsData.length} teams, and ${queuesData.length} queues for user ${id}`,
+            `Fetched ${roles.length} security roles, ${profilesData.length} field security profiles, ${teamsData.length} teams, and ${queuesData.length} queues for user ${id}`,
           );
         } else {
           const [rolesData, membersData] = await Promise.all([
@@ -197,6 +218,7 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
         if (entityType === "systemuser") {
           setIsLoadingTeams(false);
           setIsLoadingQueues(false);
+          setIsLoadingFieldSecurityProfiles(false);
         } else {
           setIsLoadingTeamMembers(false);
         }
@@ -301,24 +323,37 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
       const userData: Array<{
         user: SystemUser;
         roles: SecurityRole[];
+        fieldSecurityProfiles: FieldSecurityProfile[];
         teams: Team[];
         queues: Queue[];
       }> = [];
 
       for (const user of filteredSystemUsers) {
-        const roles = await loadSecurityRolesForUser(user.systemuserid);
         const teams = await loadTeamsForUser(user.systemuserid);
+        const roles = await loadEffectiveSecurityRolesForUser(
+          user.systemuserid,
+          teams,
+        );
+        const fieldSecurityProfiles =
+          await loadEffectiveFieldSecurityProfilesForUser(
+            user.systemuserid,
+            teams,
+          );
         const queues = await loadQueuesForUser(user.systemuserid);
-        userData.push({ user, roles, teams, queues });
+        userData.push({ user, roles, fieldSecurityProfiles, teams, queues });
       }
 
       // Collect all unique roles, teams, and queues
       const allRolesMap = new Map<string, string>();
       const allTeamsMap = new Map<string, string>();
       const allQueuesMap = new Map<string, string>();
+      const allProfilesMap = new Map<string, string>();
 
-      userData.forEach(({ roles, teams, queues }) => {
+      userData.forEach(({ roles, fieldSecurityProfiles, teams, queues }) => {
         roles.forEach((role) => allRolesMap.set(role.roleid, role.name));
+        fieldSecurityProfiles.forEach((profile) =>
+          allProfilesMap.set(profile.fieldsecurityprofileid, profile.name),
+        );
         teams.forEach((team) => allTeamsMap.set(team.teamid, team.name));
         queues.forEach((queue) => allQueuesMap.set(queue.queueid, queue.name));
       });
@@ -332,6 +367,9 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
       const allQueues = Array.from(allQueuesMap.entries()).sort((a, b) =>
         a[1].localeCompare(b[1]),
       );
+      const allProfiles = Array.from(allProfilesMap.entries()).sort((a, b) =>
+        a[1].localeCompare(b[1]),
+      );
 
       // Build CSV header
       const csvLines: string[] = [];
@@ -342,12 +380,15 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
         "Status",
       ];
       allRoles.forEach(([, name]) => headerParts.push(`Role: ${name}`));
+      allProfiles.forEach(([, name]) =>
+        headerParts.push(`Field Security Profile: ${name}`),
+      );
       allTeams.forEach(([, name]) => headerParts.push(`Team: ${name}`));
       allQueues.forEach(([, name]) => headerParts.push(`Queue: ${name}`));
       csvLines.push(headerParts.map((h) => `"${h}"`).join(","));
 
       // Build data rows
-      userData.forEach(({ user, roles, teams, queues }) => {
+      userData.forEach(({ user, roles, fieldSecurityProfiles, teams, queues }) => {
         const rowParts: string[] = [
           user.fullname,
           user.domainname,
@@ -357,8 +398,15 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
 
         // Check each role
         allRoles.forEach(([roleId]) => {
-          const hasRole = roles.some((r) => r.roleid === roleId);
-          rowParts.push(hasRole ? "X" : "");
+          const role = roles.find((r) => r.roleid === roleId);
+          rowParts.push(role ? formatAssignmentSources(role.sources) : "");
+        });
+
+        allProfiles.forEach(([profileId]) => {
+          const profile = fieldSecurityProfiles.find(
+            (item) => item.fieldsecurityprofileid === profileId,
+          );
+          rowParts.push(profile ? formatAssignmentSources(profile.sources) : "");
         });
 
         // Check each team
@@ -405,8 +453,16 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
       mdLines.push("");
 
       for (const user of filteredSystemUsers) {
-        const roles = await loadSecurityRolesForUser(user.systemuserid);
         const teams = await loadTeamsForUser(user.systemuserid);
+        const roles = await loadEffectiveSecurityRolesForUser(
+          user.systemuserid,
+          teams,
+        );
+        const fieldSecurityProfiles =
+          await loadEffectiveFieldSecurityProfilesForUser(
+            user.systemuserid,
+            teams,
+          );
         const queues = await loadQueuesForUser(user.systemuserid);
 
         mdLines.push("");
@@ -428,12 +484,28 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
             mdLines.push(
               `- ${role.name}${role.ismanaged ? " (Managed)" : ""}${
                 role.businessunitid ? ` - ${role.businessunitid.name}` : ""
-              }`,
+              } - ${formatAssignmentSources(role.sources)}`,
             );
           });
         } else {
           mdLines.push("");
           mdLines.push("*No security roles assigned*");
+        }
+
+        if (fieldSecurityProfiles.length > 0) {
+          mdLines.push("");
+          mdLines.push("### Field Security Profiles");
+          mdLines.push("");
+          fieldSecurityProfiles.forEach((profile) => {
+            mdLines.push(
+              `- ${profile.name}${profile.ismanaged ? " (Managed)" : ""}${
+                profile.description ? ` - ${profile.description}` : ""
+              } - ${formatAssignmentSources(profile.sources)}`,
+            );
+          });
+        } else {
+          mdLines.push("");
+          mdLines.push("*No field security profiles assigned*");
         }
 
         if (teams.length > 0) {
@@ -814,6 +886,8 @@ export const Overview: React.FC<IOverviewProps> = ({ connection }) => {
                 entityName={getSelectedEntityName()}
                 roles={securityRoles}
                 isLoadingRoles={isLoadingRoles}
+                fieldSecurityProfiles={fieldSecurityProfiles}
+                isLoadingFieldSecurityProfiles={isLoadingFieldSecurityProfiles}
                 userTeams={userTeams}
                 isLoadingTeams={isLoadingTeams}
                 userQueues={userQueues}

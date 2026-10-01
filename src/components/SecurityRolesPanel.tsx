@@ -15,12 +15,15 @@ import { SecurityRole } from "../types/securityRole";
 import { Team } from "../types/team";
 import { SystemUser } from "../types/systemUser";
 import { Queue } from "../types/queue";
+import { FieldSecurityProfile } from "../types/fieldSecurityProfile";
 
 interface ISecurityRolesPanelProps {
   entityType: "systemuser" | "team";
   entityName: string;
   roles: SecurityRole[];
   isLoadingRoles: boolean;
+  fieldSecurityProfiles?: FieldSecurityProfile[];
+  isLoadingFieldSecurityProfiles?: boolean;
   userTeams?: Team[];
   isLoadingTeams?: boolean;
   userQueues?: Queue[];
@@ -148,6 +151,8 @@ export const SecurityRolesPanel: React.FC<ISecurityRolesPanelProps> = ({
   entityName,
   roles,
   isLoadingRoles,
+  fieldSecurityProfiles = [],
+  isLoadingFieldSecurityProfiles = false,
   userTeams = [],
   isLoadingTeams = false,
   userQueues = [],
@@ -207,17 +212,68 @@ export const SecurityRolesPanel: React.FC<ISecurityRolesPanelProps> = ({
                     </div>
                   }
                   description={
-                    <div className={styles.roleDetails}>
-                      {role.businessunitid
-                        ? `Business Unit: ${role.businessunitid.name}`
-                        : "No Business Unit"}
-                    </div>
+                      <div className={styles.roleDetails}>
+                        {role.businessunitid
+                          ? `Business Unit: ${role.businessunitid.name}`
+                          : "No Business Unit"}
+                        {role.sources.map((source, index) => (
+                          <div key={`${source.type}-${index}`}>
+                            {source.type === "direct"
+                              ? "Directly assigned"
+                              : `Via team: ${source.teamName}`}
+                          </div>
+                        ))}
+                      </div>
                   }
                 />
               </Card>
             ))
           )}
         </div>
+
+        {entityType === "systemuser" && (
+          <div className={styles.section}>
+            <Title3 className={styles.sectionTitle}>Field Security Profiles</Title3>
+            {isLoadingFieldSecurityProfiles ? (
+              <div className={styles.loadingContainer}>
+                <Spinner label="Loading field security profiles..." />
+              </div>
+            ) : fieldSecurityProfiles.length === 0 ? (
+              <div className={styles.emptyState}>
+                <Text>No field security profiles assigned</Text>
+              </div>
+            ) : (
+              fieldSecurityProfiles.map((profile) => (
+                <Card key={profile.fieldsecurityprofileid} className={styles.roleCard}>
+                  <CardHeader
+                    header={
+                      <div className={styles.roleHeader}>
+                        <div className={styles.roleName}>{profile.name}</div>
+                        {profile.ismanaged && (
+                          <Badge appearance="tint" color="informative" className={styles.badge}>
+                            Managed
+                          </Badge>
+                        )}
+                      </div>
+                    }
+                    description={
+                      <div className={styles.roleDetails}>
+                        {profile.description && <div>{profile.description}</div>}
+                        {profile.sources.map((source, index) => (
+                          <div key={`${source.type}-${index}`}>
+                            {source.type === "direct"
+                              ? "Directly assigned"
+                              : `Via team: ${source.teamName}`}
+                          </div>
+                        ))}
+                      </div>
+                    }
+                  />
+                </Card>
+              ))
+            )}
+          </div>
+        )}
 
         {/* Teams Section - only for system users */}
         {entityType === "systemuser" && (

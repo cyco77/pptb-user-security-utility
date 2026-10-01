@@ -2,6 +2,8 @@ import { SystemUser } from "../types/systemUser";
 import { Team } from "../types/team";
 import { SecurityRole } from "../types/securityRole";
 import { Queue } from "../types/queue";
+import { AssignmentSource } from "../types/assignment";
+import { FieldSecurityProfile } from "../types/fieldSecurityProfile";
 import { logger } from "./loggerService";
 
 export const loadSystemUsers = async (): Promise<SystemUser[]> => {
@@ -86,12 +88,28 @@ export const loadSecurityRolesForUser = async (
     roleid: record.roleid,
     name: record.name,
     ismanaged: record.ismanaged,
+    sources: [{ type: "direct" }],
     businessunitid: record.businessunitid
       ? {
           businessunitid: record.businessunitid.businessunitid,
           name: record.businessunitid.name,
         }
       : undefined,
+  }));
+};
+
+export const loadFieldSecurityProfilesForUser = async (
+  systemUserId: string
+): Promise<FieldSecurityProfile[]> => {
+  const url = `systemusers(${systemUserId})/systemuserprofiles_association?$select=fieldsecurityprofileid,name,description,ismanaged`;
+  const allRecords = await loadAllData(url);
+
+  return allRecords.map((record: any) => ({
+    fieldsecurityprofileid: record.fieldsecurityprofileid,
+    name: record.name,
+    description: record.description,
+    ismanaged: record.ismanaged,
+    sources: [{ type: "direct" }],
   }));
 };
 
@@ -106,6 +124,7 @@ export const loadSecurityRolesForTeam = async (
     roleid: record.roleid,
     name: record.name,
     ismanaged: record.ismanaged,
+    sources: [],
     businessunitid: record.businessunitid
       ? {
           businessunitid: record.businessunitid.businessunitid,
@@ -113,6 +132,99 @@ export const loadSecurityRolesForTeam = async (
         }
       : undefined,
   }));
+};
+
+export const loadSecurityRolesForTeamWithSource = async (
+  team: Team
+): Promise<SecurityRole[]> => {
+  const roles = await loadSecurityRolesForTeam(team.teamid);
+  return roles.map((role) => ({
+    ...role,
+    sources: [
+      {
+        type: "team",
+        teamId: team.teamid,
+        teamName: team.name,
+      },
+    ],
+  }));
+};
+
+export const loadFieldSecurityProfilesForTeam = async (
+  team: Team
+): Promise<FieldSecurityProfile[]> => {
+  const url = `teams(${team.teamid})/teamprofiles_association?$select=fieldsecurityprofileid,name,description,ismanaged`;
+  const allRecords = await loadAllData(url);
+
+  return allRecords.map((record: any) => ({
+    fieldsecurityprofileid: record.fieldsecurityprofileid,
+    name: record.name,
+    description: record.description,
+    ismanaged: record.ismanaged,
+    sources: [
+      {
+        type: "team",
+        teamId: team.teamid,
+        teamName: team.name,
+      },
+    ],
+  }));
+};
+
+const mergeAssignments = <T extends { [key: string]: any }>(
+  assignments: T[],
+  idProperty: string,
+): T[] => {
+  const merged = new Map<string, T>();
+  assignments.forEach((assignment) => {
+    const id = assignment[idProperty];
+    const existing = merged.get(id);
+    if (!existing) {
+      merged.set(id, assignment);
+      return;
+    }
+
+    const sources = [...existing.sources, ...assignment.sources].filter(
+      (source: AssignmentSource, index: number, all: AssignmentSource[]) =>
+        all.findIndex((candidate) =>
+          candidate.type === "direct" && source.type === "direct"
+            ? true
+            : candidate.type === "team" &&
+              source.type === "team" &&
+              candidate.teamId === source.teamId,
+        ) === index,
+    );
+    merged.set(id, { ...existing, sources });
+  });
+  return Array.from(merged.values());
+};
+
+export const loadEffectiveSecurityRolesForUser = async (
+  systemUserId: string,
+  teams: Team[],
+): Promise<SecurityRole[]> => {
+  const [directRoles, teamRoles] = await Promise.all([
+    loadSecurityRolesForUser(systemUserId),
+    Promise.all(teams.map(loadSecurityRolesForTeamWithSource)),
+  ]);
+  return mergeAssignments(
+    [...directRoles, ...teamRoles.flat()],
+    "roleid",
+  );
+};
+
+export const loadEffectiveFieldSecurityProfilesForUser = async (
+  systemUserId: string,
+  teams: Team[],
+): Promise<FieldSecurityProfile[]> => {
+  const [directProfiles, teamProfiles] = await Promise.all([
+    loadFieldSecurityProfilesForUser(systemUserId),
+    Promise.all(teams.map(loadFieldSecurityProfilesForTeam)),
+  ]);
+  return mergeAssignments(
+    [...directProfiles, ...teamProfiles.flat()],
+    "fieldsecurityprofileid",
+  );
 };
 
 export const loadTeamsForUser = async (
